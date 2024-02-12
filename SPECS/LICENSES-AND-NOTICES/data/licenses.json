@@ -2018,6 +2018,7 @@
                 "tokyocabinet",
                 "tpm-quote-tools",
                 "tpm-tools",
+                "trace-cmd",
                 "tss2",
                 "ttembed",
                 "ttmkfdir",
