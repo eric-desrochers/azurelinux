@@ -11180,6 +11180,16 @@
       "component": {
         "type": "other",
         "other": {
+          "name": "libtracecmd",
+          "version": "1.5.1",
+          "downloadUrl": "https://git.kernel.org/pub/scm/utils/trace-cmd/trace-cmd.git/snapshot/trace-cmd-libtracecmd-1.5.1.tar.gz"
+        }
+      }
+    },
+    {
+      "component": {
+        "type": "other",
+        "other": {
           "name": "libtomcrypt",
           "version": "1.18.2",
           "downloadUrl": "https://github.com/libtom/libtomcrypt/archive/v1.18.2/libtomcrypt-1.18.2.tar.gz"

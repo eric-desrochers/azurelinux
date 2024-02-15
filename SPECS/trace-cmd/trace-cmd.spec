@@ -71,7 +71,7 @@ done
 chrpath --delete tracecmd/trace-cmd
 
 %install
-make libdir=%{_libdir} prefix=%{_prefix} V=1 DESTDIR=%{buildroot}/ CFLAGS="%{optflags} -D_GNU_SOURCE" LDFLAGS="%{build_ldflags} -z muldefs " BUILD_TYPE=Release install install_doc install_python
+make libdir=%{_libdir} prefix=%{_prefix} PYTHON_VERS=python3 V=1 DESTDIR=%{buildroot}/ CFLAGS="%{optflags} -D_GNU_SOURCE" LDFLAGS="%{build_ldflags} -z muldefs " BUILD_TYPE=Release install install_doc install_python
 find %{buildroot}%{_mandir} -type f | xargs chmod u-x,g-x,o-x
 find %{buildroot}%{_datadir} -type f | xargs chmod u-x,g-x,o-x
 find %{buildroot}%{_libdir} -type f -iname "*.so" | xargs chmod 0755
