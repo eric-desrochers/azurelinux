@@ -765,6 +765,7 @@
                 "libtommath",
                 "libtpms",
                 "libtraceevent",
+                "libtracefs",
                 "libtranslit",
                 "libucil",
                 "libunicap",
