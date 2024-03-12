@@ -123,7 +123,7 @@ touch %{buildroot}%{_libdir}/gio/modules/giomodule.cache
 %doc %{_datadir}/gtk-doc/html/*
 
 %changelog
-* Fri Feb 08 2024 Betty Lakes <bettylakes@microsoft.com> - 2.78.1-2
+* Fri Mar 08 2024 Betty Lakes <bettylakes@microsoft.com> - 2.78.1-2
 - Move to pcre2
 
 * Mon Nov 27 2023 Andrew Phelps <anphel@microsoft.com> - 2.78.1-1
