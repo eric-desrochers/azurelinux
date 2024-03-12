@@ -426,7 +426,7 @@ ln -sf linux-%{uname_r}.cfg /boot/mariner.cfg
 %{_sysconfdir}/bash_completion.d/bpftool
 
 %changelog
-* Wed Feb 14 2024 Rachel Menge <rachelmenge@microsoft.com> - 5.15.148.2-2
+* Tue Mar 12 2024 Rachel Menge <rachelmenge@microsoft.com> - 5.15.150.1-2
 - Enable CONFIG_NFT_OBJREF module
 
 * Sat Mar 02 2024 CBL-Mariner Servicing Account <cblmargh@microsoft.com> - 5.15.150.1-1
