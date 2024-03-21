@@ -1,7 +1,7 @@
 Summary:        The OpenTelemetry C++ Client
 Name:           opentelemetry-cpp
-Version:        1.10.0
-Release:        2%{?dist}
+Version:        1.14.2
+Release:       	1%{?dist}
 License:        MIT
 Vendor:         Microsoft Corporation
 Distribution:   Azure Linux
@@ -17,7 +17,11 @@ BuildRequires:  grpc-devel
 BuildRequires:  grpc-plugins
 BuildRequires:  gtest-devel
 BuildRequires:  nlohmann-json-devel
+BuildRequires:	abseil-cpp
+BuildRequires:	abseil-cpp-devel
 BuildRequires:  protobuf-devel
+BuildRequires:  protobuf-c-devel
+BuildRequires:  protobuf-static
 BuildRequires:  re2-devel
 
 %description
@@ -86,6 +90,9 @@ mkdir build && cd build
 %{_libdir}/cmake/opentelemetry-cpp/*
 
 %changelog
+* Mon Mar 18 2024 Betty Lakes <bettylakes@microsoft.com> - 1.14.2-1
+- Upgrade to 1.14.2
+
 * Wed Sep 20 2023 Jon Slobodzian <joslobo@microsoft.com> - 1.10.0-2
 - Recompile with stack-protection fixed gcc version (CVE-2023-4039)
 
