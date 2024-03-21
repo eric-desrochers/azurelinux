@@ -1,5 +1,7 @@
 Summary:        advanced key-value store
 Name:           redis
+# Please do not upgrade to Redis 7.4. Redis has changed the license.
+# https://redis.com/blog/redis-adopts-dual-source-available-licensing/
 Version:        6.2.14
 Release:        1%{?dist}
 License:        BSD
