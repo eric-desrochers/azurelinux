@@ -2639,6 +2639,7 @@ packages = [
     "kmod", # srpm: kmod
     "kmod-devel", # srpm: kmod
     "kmod-libs", # srpm: kmod
+    "kmod-nvidia-open", # srpm: kernel
     "koji", # srpm: koji
     "koji-builder", # srpm: koji
     "koji-builder-plugins", # srpm: koji
