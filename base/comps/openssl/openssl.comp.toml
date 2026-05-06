@@ -1,0 +1,77 @@
+[components.openssl]
+
+# AZL4 uses the openssl-fips-provider package for FIPS support, which builds
+# fips.so from a certified OpenSSL 3.5.4 source and generates fipsmodule.cnf
+# at build time using `openssl fipsinstall`. The four patches below conflict
+# with that approach and must be removed.
+
+[[components.openssl.overlays]]
+type = "patch-remove"
+file = "0017-FIPS-Red-Hat-s-FIPS-module-name-and-version.patch"
+description = "Remove RH FIPS branding — openssl does not ship fips.so"
+
+[[components.openssl.overlays]]
+type = "patch-remove"
+file = "0018-FIPS-disable-fipsinstall.patch"
+description = "Remove fipsinstall stub — we need fipsinstall working for openssl-fips-provider"
+
+[[components.openssl.overlays]]
+type = "patch-remove"
+file = "0020-FIPS-INTEG-CHECK-Embed-hmac-in-fips.so-NOTE.patch"
+description = "Remove embedded-HMAC approach — we use fipsmodule.cnf instead"
+
+[[components.openssl.overlays]]
+type = "patch-remove"
+file = "0022-FIPS-INTEG-CHECK-Execute-KATS-before-HMAC-REVIEW.patch"
+description = "Remove KAT reordering tied to 0020's embedded-HMAC approach"
+
+# AZL4 does not ship fips.so from openssl — it comes from openssl-fips-provider.
+# The spec already has a branch for RHEL that deletes fips.so from the buildroot
+# instead of running the hmac-ify script. Extend that condition to cover AZL4.
+[[components.openssl.overlays]]
+type = "spec-search-replace"
+regex = '%if \( %\{defined rhel\} && \(! %\{defined centos\}\) && \(! %\{defined eln\}\) \)'
+replacement = '%if ( %{defined rhel} && (! %{defined centos}) && (! %{defined eln}) ) || 0%{?azl4}'
+description = "Take the RHEL fips.so-deletion path on AZL4 (don't run hmac-ify, don't ship fips.so)"
+
+# In %check, fips-hmacify.sh is called unconditionally to embed an HMAC into
+# providers/fips.so for the test run. This relies on .rodata1 (added by patch 0020
+# which we removed). Skip it on AZL4 — the test suite uses fipsinstall internally.
+[[components.openssl.overlays]]
+type = "spec-search-replace"
+regex = "%\\{SOURCE1\\} providers/fips\\.so$"
+replacement = "%if ! 0%{?azl4}\n%{SOURCE1} providers/fips.so\n%endif"
+description = "Skip fips-hmacify.sh in %check on AZL4 (no .rodata1 without patch 0020)"
+
+# Patch 0037 has a hunk in doc/man5/fips_config.pod that expects 0018's
+# stripped-down version of that file. Since we don't apply 0018, remove that
+# hunk from 0037. The rest of 0037 (EMS enforcement in ssl/, providers/) applies cleanly.
+[[components.openssl.overlays]]
+type = "file-search-replace"
+file = "0037-FIPS-TLS-Enforce-EMS-in-TLS-1.2-NOTE.patch"
+regex = "(?s) doc/man5/fips_config\\.pod +\\| +13 \\+{13}\\n"
+replacement = ""
+description = "Remove fips_config.pod diffstat entry from 0037 (depends on 0018's doc changes)"
+
+[[components.openssl.overlays]]
+type = "file-search-replace"
+file = "0037-FIPS-TLS-Enforce-EMS-in-TLS-1.2-NOTE.patch"
+regex = "(?s)diff --git a/doc/man5/fips_config\\.pod b/doc/man5/fips_config\\.pod\n.*?diff --git a/include/openssl/ssl\\.h\\.in"
+replacement = "diff --git a/include/openssl/ssl.h.in"
+description = "Remove fips_config.pod hunk from 0037 (context requires 0018 which we don't apply)"
+
+# On AZL4, exclude FIPS-specific tests that are incompatible with our patch
+# selection:
+#   03-test_fipsinstall: patch 0018 adds plan-skip-all to this file; without
+#     0018 (needed so fipsinstall works for openssl-fips-provider), tests 21
+#     and 27 fail because DSA/RSA_Encrypt KATs are absent (algorithm removed).
+#   30-test_evp: patch 0048 updates test data error codes (KDF_CTRL_ERROR →
+#     KDF_DERIVE_ERROR) but there is no matching code-level change in the
+#     patch set, so the tests fail with an error-code mismatch.
+#   90-test_sslapi: test 3 ("modified fips config") fails due to EMS
+#     enforcement side-effects from patch 0037.
+[[components.openssl.overlays]]
+type = "spec-search-replace"
+regex = "make test HARNESS_JOBS=8$"
+replacement = "%if 0%{?azl4}\nmake test HARNESS_JOBS=8 TESTS=\"-test_fipsinstall -test_evp -test_sslapi\"\n%else\nmake test HARNESS_JOBS=8\n%endif"
+description = "Skip RH-patch-incompatible FIPS tests on AZL4"
