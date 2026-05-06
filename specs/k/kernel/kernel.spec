@@ -198,6 +198,9 @@ Summary: The Linux kernel
 
 #
 # End of genspec.sh variables
+
+# AZL: kmod subpackage framework
+%include %{_sourcedir}/kmod-macros.inc
 #
 
 %define pkg_release %{specrelease}
@@ -1174,6 +1177,10 @@ Source9999: kernel.azl.macros
 Source5000: 6.18-x86_64-azl.config
 Source5001: 6.18-aarch64-azl.config
 Source5002: azurelinux-ca-20230216.pem
+Source5999: kmod-macros.inc
+Source6000: open-gpu-kernel-modules-%{nvidia_open_version}.tar.gz
+Source6001: kmod-nvidia-open-modprobe.conf
+Source6002: kmod-nvidia-open.inc
 
 ## Patches needed for building this package
 
@@ -1224,6 +1231,11 @@ AutoProv: yes\
 %{nil}
 
 
+
+# AZL: kmod subpackage declarations
+%global _kmod_phase package
+%global _kmod_name nvidia-open
+%include %{_sourcedir}/kmod-nvidia-open.inc
 %package doc
 Summary: Various documentation bits found in the kernel source
 Group: Documentation
@@ -2245,6 +2257,11 @@ OPTS="-w -n -c"
 RHJOBS=$RPM_BUILD_NCPUS SPECPACKAGE_NAME=%{name} ./process_configs.sh $OPTS %{specrpmversion}
 cd ../..
 %endif
+
+# AZL: Prepare kmod subpackage sources
+%global _kmod_phase prep
+%global _kmod_name nvidia-open
+%include %{_sourcedir}/kmod-nvidia-open.inc
 %build
 %{log_msg "Start of build stage"}
 
@@ -3412,6 +3429,11 @@ find Documentation -type d | xargs chmod u+w
 
 %ifnarch noarch %{nobuildarches}
 %global __debug_package 1
+
+# AZL: Build kmod subpackage modules
+%global _kmod_phase build
+%global _kmod_name nvidia-open
+%include %{_sourcedir}/kmod-nvidia-open.inc
 %files -f debugfiles.list debuginfo-common-%{_target_cpu}
 %endif
 
@@ -3886,6 +3908,11 @@ popd
 ###
 
 %if %{with_tools}
+
+# AZL: Install kmod subpackage files
+%global _kmod_phase install
+%global _kmod_name nvidia-open
+%include %{_sourcedir}/kmod-nvidia-open.inc
 %post -n %{package_name}-tools-libs
 /sbin/ldconfig
 
@@ -4538,6 +4565,11 @@ fi\
 # and build.
 #
 #
+
+# AZL: kmod subpackage file lists and scriptlets
+%global _kmod_phase files
+%global _kmod_name nvidia-open
+%include %{_sourcedir}/kmod-nvidia-open.inc
 %changelog
 * Thu Feb 19 2026 Augusto Caringi <acaringi@redhat.com> [6.18.13-0]
 - Linux v6.18.13
