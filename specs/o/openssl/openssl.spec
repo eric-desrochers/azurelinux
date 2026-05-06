@@ -98,7 +98,7 @@ Patch0049: 0049-FIPS-fix-disallowed-digests-tests.patch
 Patch0050: 0050-Make-openssl-speed-run-in-FIPS-mode.patch
 Patch0051: 0051-Backport-upstream-27483-for-PKCS11-needs.patch
 Patch0052: 0052-Red-Hat-9-FIPS-indicator-defines.patch
-%if ( %{defined rhel} && (! %{defined centos}) && (! %{defined eln}) )
+%if ( %{defined rhel} && (! %{defined centos}) && (! %{defined eln}) ) || 0%{?azl4}
 Patch0053: 0053-Allow-hybrid-MLKEM-in-FIPS-mode.patch
 %endif
 Patch0054: 0054-Temporarily-disable-SLH-DSA-FIPS-self-tests.patch
@@ -151,8 +151,10 @@ Summary: A general purpose cryptography library with TLS implementation
 Requires: ca-certificates >= 2008-5
 Requires: crypto-policies >= 20180730
 Recommends: pkcs11-provider%{?_isa}
-%if ( %{defined rhel} && (! %{defined centos}) && (! %{defined eln}) )
+%if ( %{defined rhel} && (! %{defined centos}) && (! %{defined eln}) ) || 0%{?azl4}
+%if ! 0%{?azl4}
 Requires: openssl-fips-provider
+%endif
 %endif
 
 %description libs
@@ -336,7 +338,7 @@ make test HARNESS_JOBS=8
 # Add generation of HMAC checksum of the final stripped library
 # We manually copy standard definition of __spec_install_post
 # and add hmac calculation/embedding to fips.so
-%if ( %{defined rhel} && (! %{defined centos}) && (! %{defined eln}) )
+%if ( %{defined rhel} && (! %{defined centos}) && (! %{defined eln}) ) || 0%{?azl4}
 %define __spec_install_post \
     rm -rf $RPM_BUILD_ROOT/%{_libdir}/ossl-modules/fips.so \
     %{?__debug_package:%{__debug_install_post}} \
