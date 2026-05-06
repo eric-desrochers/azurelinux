@@ -4808,6 +4808,7 @@ packages = [
     "openssl-devel-engine", # srpm: openssl
     "openssl-libs", # srpm: openssl
     "openssl-perl", # srpm: openssl
+    "openssl-fips-provider", # srpm: openssl-fips-provider
     "openssl-pkcs11", # srpm: openssl-pkcs11
     "opentest4j", # srpm: opentest4j
     "openvswitch", # srpm: openvswitch
