@@ -33,6 +33,60 @@ echo "  GRUB EFI package: $GRUB_EFI_PKG"
 echo "  Shim EFI binary:  $SHIM_EFI"
 
 #----------------------------------------------------------------------
+# Disable Anaconda Flatpak payload crash (flatpak-libs removed from repo)
+#----------------------------------------------------------------------
+# Anaconda's Flatpak payload module does:
+#   gi.require_version("Flatpak", "1.0")
+#   from gi.repository.Flatpak import Installation, Transaction, ...
+# This crashes immediately if flatpak-libs (typelib) isn't installed.
+# We can't skip creating the payload (DNF payload reads SidePayload via DBus),
+# so instead patch flatpak_manager.py to gracefully handle the missing typelib.
+echo "=== Patching Anaconda flatpak_manager.py to tolerate missing Flatpak typelib ==="
+
+FLATPAK_MGR=$(find /usr/lib64 /usr/lib -path '*/pyanaconda/modules/payloads/payload/flatpak/flatpak_manager.py' 2>/dev/null | head -1)
+if [[ -n "$FLATPAK_MGR" ]]; then
+    python3 << PYEOF
+import pathlib, sys
+
+f = pathlib.Path("$FLATPAK_MGR")
+code = f.read_text()
+
+# Wrap the two problematic lines:
+#   gi.require_version("Flatpak", "1.0")
+#   from gi.repository.Flatpak import Installation, Transaction, TransactionOperationType
+old = '''gi.require_version("Flatpak", "1.0")
+gi.require_version("Gio", "2.0")
+
+from gi.repository.Flatpak import Installation, Transaction, TransactionOperationType'''
+
+new = '''try:
+    gi.require_version("Flatpak", "1.0")
+    from gi.repository.Flatpak import Installation, Transaction, TransactionOperationType
+except (ImportError, ValueError):
+    # flatpak-libs not installed — define stubs so the module loads but does nothing
+    Installation = None
+    Transaction = None
+    TransactionOperationType = None
+gi.require_version("Gio", "2.0")'''
+
+if old not in code:
+    print("WARNING: Flatpak gi.require_version block not found — skipping patch", file=sys.stderr)
+    sys.exit(0)
+
+code = code.replace(old, new, 1)
+f.write_text(code)
+print(f"Patched {f}")
+PYEOF
+
+    # Clear bytecode cache
+    find "$(dirname "$FLATPAK_MGR")" -name '*.pyc' -delete
+    find "$(dirname "$FLATPAK_MGR")/__pycache__" -type f -delete 2>/dev/null || true
+    echo "=== Flatpak manager patch applied ==="
+else
+    echo "WARNING: flatpak_manager.py not found — Flatpak patch skipped"
+fi
+
+#----------------------------------------------------------------------
 # Download all target-install packages + deps for the offline repo
 #----------------------------------------------------------------------
 # During the ISO build we have network access to the repo.
