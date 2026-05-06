@@ -9,6 +9,127 @@ repository.
 The signing failures are caused by malware-scan hits during ESRP signing of
 AZL4 Alpha2 RPMs that are being published to PMC AZL4 Beta repos.
 
+This document is now also the **top-level progress tracker** for the
+investigation. The per-component status rollup (originally in
+`investigation/STATUS.md`) lives here, alongside the live ESRP scanner
+detection data and the original RPM-to-component mapping. Per-component
+authoritative state still lives in `investigation/<component>/progress.md`;
+this file is the navigation summary.
+
+---
+
+## Per-component investigation status rollup
+
+Mirror of per-component `progress.md` files. The authoritative status for
+any single component lives in `investigation/<component>/progress.md`;
+the table below is a navigation summary.
+
+| Component | Status | Owner | PR | Critical? | V1 verdict | File |
+|---|---|---|---|---|---|---|
+| `apache-commons-compress` | In progress | unassigned | none | no | True positive shape, benign content — SRPM-only failure; `src/test/resources/` is the entire Apache Commons Compress defensive-parser regression corpus (zip-bombs, corrupt 7z/tar/zip, `*-fail.tar` family, fuzz crashes incl. hash-named `/fuzz/crash-*`, encrypted archives, bundled Eclipse 3.2 runtime with signed JARs + 2 ELF `.so` blobs, PyPI orjson sdist, Pack200 fixture carrying entire Apache Ant `.class` codebase, Android `.apk` debug builds). No `%check`, only `%files -f .mfiles`. Recommend Source0 repack stripping `src/test/resources/` (medium risk — `%prep` rm doesn't fix SRPM) or ESRP path-scoped allow-list (low risk). 2026-05-06 scanner data confirmed `bla.encrypted.7z` + `password-encrypted.zip` as live trip points. | [progress](investigation/apache-commons-compress/progress.md) |
+| `chromium` | Done | pawelwi | none | no | Removed (component not in repo) | [progress](investigation/chromium/progress.md) |
+| `espeak-ng` | In progress | unassigned | none | no | True positive shape, benign content — `tests/ssml/billion-laughs.ssml` + `external-entity.ssml` are literal XXE/XML-bomb payloads, plus SHA1-named SSML fuzzer corpus, hundreds of `phsource/` PECTSEQ binary blobs + ~150 consonant `.wav` samples (genuine voice-synthesis source, irreducible), `src/windows/Debug/output_*.wav`, `android/`, `chromium_extension/`. None ship to runtime; recommend vendored Source0 repack stripping `tests/ssml{,-fuzzer}/`, `src/windows/`, `chromium_extension/`, `android/` (low risk, `%check` is provably no-op `src/espeak-ng ...` ellipsis). `phsource/` reserved for ESRP allow-list. | [progress](investigation/espeak-ng/progress.md) |
+| `exfatprogs` | In progress | unassigned | none | no | True positive shape, benign content — 19 `tests/<scenario>/exfat.img.tar.xz` deliberately-corrupted exFAT images (bad_bitmap, bad_dentries, bs_bad_csum, loop_chain, etc.) + `tests/upcase_table/` shell scripts; `tests/` is `EXTRA_DIST`-only and spec has no `%check`. `%prep` `rm -rf tests` cleans binary RPMs but not the SRPM — SRPM-clean mitigation requires Source0 repack or ESRP allow-list. | [progress](investigation/exfatprogs/progress.md) |
+| `firefox` | In progress | unassigned | none | no | True positive shape, benign content — SRPM-only failure; Source0 (`firefox-148.0.source.tar.xz`) ships malformed media/image/font crashtest corpora (`dom/media/test/crashtests`, `image/test/{crashtests,gtest}`, `gfx/tests/crashtests`), `pip`/`setuptools` Windows PE launcher stubs, `third_party/{rust/libloading,zucchini,libwebrtc,rust/flate2}` PE/corrupt-gz fixtures, `third_party/chromium/build/android/tests/symbolize/lib{a,b}.so`. Source3 (`dump_syms-vendor`) ships Windows PE/PDB; Source37 (`mochitest-python`) ships bundled `setuptools-50.3.2.zip` wininst PE stubs; Source50 (`wasi-sdk-25`) ships LLVM clang Driver-test PE inputs + ~190 Android NDK ELF `.so` stubs. None reach binary RPMs (`build_tests=0`, `run_firefox_tests=0`, `enable_mozilla_crashreporter=0`). Recommend low-risk drops of Source3 + Source37, medium-risk Source50 strip; Source0 mass needs ESRP allow-list. | [progress](investigation/firefox/progress.md) |
+| `gdal` | In progress | unassigned | none | no | False positive — all hits trace to `gdalautotest-3.11.5.tar.gz` (Source1) test-fixture zoo (incl. SOZip-of-SOZip 5GiB zero-bomb); `%check` is hard-disabled, so dropping Source1 is low-risk. | [progress](investigation/gdal/progress.md) |
+| `ghc` | Not started | unassigned | none | — | — | [progress](investigation/ghc/progress.md) |
+| `java-25-openjdk` | Not started | unassigned | none | — | — | [progress](investigation/java-25-openjdk/progress.md) |
+| `java-25-openjdk-portable` | Not started | unassigned | none | — | — | [progress](investigation/java-25-openjdk-portable/progress.md) |
+| `kf6-karchive` | In progress | unassigned | none | no | False positive at binary-RPM layer, true positive at SRPM layer — upstream `autotests/data/` ships intentionally-malformed zip64 fixtures (e.g. `zip64_extra_zip64_size_first.zip.gz`); no `%check` block, no autotest in any `%files`, so strip Source0 (medium risk) or scanner allow-list (low risk). 2026-05-06 scanner data confirmed `password_protected.7z` as a live trip point. | [progress](investigation/kf6-karchive/progress.md) |
+| `libabigail` | Done | orchestrator | none | no | Failing SRPM passed ESRP re-scan (per pkg_results.txt 2026-05-05) | [progress](investigation/libabigail/progress.md) |
+| `libkml` | Not started | unassigned | none | — | — | [progress](investigation/libkml/progress.md) |
+| `llvm` | Not started | unassigned | none | — | — | [progress](investigation/llvm/progress.md) |
+| `llvm20` | Not started | unassigned | none | — | — | [progress](investigation/llvm20/progress.md) |
+| `mathjax` | Done | orchestrator | none | no | Failing SRPM passed ESRP re-scan (per pkg_results.txt 2026-05-05) | [progress](investigation/mathjax/progress.md) |
+| `mingw-gettext` | Done | orchestrator | none | no | Failing RPM passed ESRP re-scan (per pkg_results.txt 2026-05-05) | [progress](investigation/mingw-gettext/progress.md) |
+| `mingw-libxml2` | Done | orchestrator | none | no | Failing RPM passed ESRP re-scan (per pkg_results.txt 2026-05-05) | [progress](investigation/mingw-libxml2/progress.md) |
+| `mozjs128` | Not started (scanner data captured) | unassigned | none | no | Preliminary verdict from 2026-05-06 scanner data: True positive shape, benign content — 1 detection (`aes_archive.zip`, sha256 `4abb3f30…`) is an encrypted-archive test fixture inside the SpiderMonkey SRPM (path not yet enumerated; [mozjs128/package_files.md](investigation/mozjs128/package_files.md) listing is incomplete and needs a re-run during Wave C). Same shape as the `qt6-qtwebengine` libzip / lzma_sdk regress fixtures — K7 "File is encrypted!" heuristic on a password-protected ZIP. Mitigation likely Source0 repack stripping the offending test directory, or an ESRP allow-list. Full investigation pending Wave C with the scanner data as a hint. | [progress](investigation/mozjs128/progress.md) |
+| `openfec` | Not started (scanner data captured) | unassigned | none | no | Preliminary verdict from 2026-05-06 scanner data: True positive shape, almost certainly benign — both failing artefacts are the auto-generated `openfec-debuginfo` `*.debug` companion ELFs (x86_64 + aarch64), flagged `packer_high_entropy:eod` by Karambiner. "High entropy" on stripped DWARF/symbol tables is normal for any optimised native library; no test-fixture/upstream-payload component. Mitigation likely needs an ESRP allow-list scoped to `openfec-debuginfo-*` (low risk — debuginfo is only consumed by debuggers/SREs). Full investigation pending Wave C with the scanner data as hints. | [progress](investigation/openfec/progress.md) |
+| `perl-Module-Signature` | Done | orchestrator | none | no | Failing SRPM + noarch RPM passed ESRP re-scan (per pkg_results.txt 2026-05-05) | [progress](investigation/perl-Module-Signature/progress.md) |
+| `perl-Test-Signature` | Done | orchestrator | none | no | Failing SRPM + noarch RPM passed ESRP re-scan (2026-05-05); confirmed clear again on 2026-05-06 re-run (no scanner detections in `investigation/file_scans.md`). | [progress](investigation/perl-Test-Signature/progress.md) |
+| `python-impacket` | In progress | anphel | [#17040](https://github.com/microsoft/azurelinux/pull/17040) | no | Component being removed entirely; only consumer (`curl` BuildRequires for upstream test 1451) is also dropped. | [progress](investigation/python-impacket/progress.md) |
+| `qemu` | Not started | unassigned | none | — | — | [progress](investigation/qemu/progress.md) |
+| `qt6-qtwebengine` | Not started (scanner data captured) | unassigned | none | no | Preliminary verdict from 2026-05-06 scanner data: True positive shape, benign content — 16 of the 21 live detections trace to bundled-chromium `src/3rdparty/chromium/third_party/libzip/src/regress/` test corpus (`broken.zip`, `encrypt.zip`, `encrypt-aes{128,192,256}{,-noentropy}.zip`, `encrypt-pkware-noentropy.zip`, `encrypt_plus_extra{,_modified_[cl]}.zip`) and `src/3rdparty/chromium/third_party/lzma_sdk/google/test_data/encrypted{,_header}.7z`. Same shape as `apache-commons-compress` / `kf6-karchive` — bundled-third-party encrypted-archive test fixtures. `aes_archive.zip` (sha256 4abb3f30…) likely belongs here too but isn't visible in the current `-clean` tarball listing — needs follow-up. Mitigation likely Source0 repack stripping the chromium libzip + lzma_sdk test trees, or an ESRP allow-list. Full investigation pending Wave C with the scanner data as hints. | [progress](investigation/qt6-qtwebengine/progress.md) |
+| `rubygem-pdf-reader` | Not started | unassigned | none | — | — | [progress](investigation/rubygem-pdf-reader/progress.md) |
+| `samba` | Not started | unassigned | none | — | — | [progress](investigation/samba/progress.md) |
+| `star` | Not started | unassigned | none | — | — | [progress](investigation/star/progress.md) |
+| `stress-ng` | Done | orchestrator | none | no | Failing SRPM passed ESRP re-scan (per pkg_results.txt 2026-05-05) | [progress](investigation/stress-ng/progress.md) |
+| `texlive` | Not started | unassigned | none | — | — | [progress](investigation/texlive/progress.md) |
+| `yara` | In progress | unassigned | none | no | True positive shape, benign content — `tests/oss-fuzz/dotnet_fuzzer_corpus/obfuscated` and many `tests/data/` precompiled-binary fixtures (UPX, EFI, mutated DLL) are malware-research test data, never installed; recommend `rm -rf tests/oss-fuzz` in `%prep` (low risk) or scanner allow-list. 2026-05-06 scanner data confirmed `obfuscated` (sha256 `fa45ddb2…`) as a live trip point with detection `packer_dotfuscator:eod` (Karambiner) — corroborates the precompiled-`.NET`-binary classification. | [progress](investigation/yara/progress.md) |
+
+### Summary counts (filled at end of Phase 4)
+
+- Done: 8 (`chromium`, `libabigail`, `mathjax`, `mingw-gettext`, `mingw-libxml2`, `perl-Module-Signature`, `perl-Test-Signature`, `stress-ng`)
+- In progress: 8 (`apache-commons-compress`, `espeak-ng`, `exfatprogs`, `firefox`, `gdal`, `kf6-karchive`, `python-impacket`, `yara`)
+- Not started: 13 (`ghc`, `java-25-openjdk`, `java-25-openjdk-portable`, `libkml`, `llvm`, `llvm20`, `mozjs128`*, `openfec`*, `qemu`, `qt6-qtwebengine`*, `rubygem-pdf-reader`, `samba`, `star`, `texlive`)
+  - * = scanner data already captured (preliminary verdict in V1 verdict column above); fast-track candidates for Wave C
+- Blocked: 0
+- Critical: 0
+
+### Notes on the rollup
+
+- `chromium` is included even though it has no spec in this repo (the SRPM showed up in the publishing pipeline from an external source). See [investigation/chromium/progress.md](investigation/chromium/progress.md) for the follow-up question.
+- `mingw-curl` is intentionally NOT tracked — it does not appear in `pkg_results.txt` (the user clarified mentioning it was a mistake).
+- **2026-05-05 re-scan update**: per [pkg_results.txt](pkg_results.txt), the failing-RPM list shrank between the original e-mail report and the re-scan. Seven components passed on re-submission with no spec change and are now closed as `Done`: `libabigail`, `mathjax`, `mingw-gettext`, `mingw-libxml2`, `perl-Module-Signature`, `perl-Test-Signature`, `stress-ng`. One additional sub-RPM passed (`ghc-ghc-devel.aarch64.rpm`) but the parent component `ghc` still has failing `ghc-ghc-prof` RPMs and remains in flight.
+- **2026-05-06 re-run update**: external sources confirm `perl-Test-Signature-1.11-35.azl4~20260420.{src,noarch}.rpm` again passed on re-submission — no detections present in `investigation/file_scans.md` for this component.
+- **2026-05-06 update**: `package_files.md` (auto-generated recursive RPM file listing) now exists for 30 components and is referenced by `investigation/README.md`, `investigation/FORMAT.md`, and the investigator + rubberduck prompts as an authoritative content source.
+- **Remaining components requiring full investigation**: `ghc`, `java-25-openjdk`, `java-25-openjdk-portable`, `libkml`, `llvm`, `llvm20`, `mozjs128`, `openfec` (scanner-data hint already captured), `qemu`, `qt6-qtwebengine` (scanner-data hint already captured), `rubygem-pdf-reader`, `samba`, `star`, `texlive` — 14 remaining (12 without hints, 2 with).
+
+---
+
+## Live ESRP scanner detections (2026-05-06)
+
+Captured in [investigation/file_scans.md](investigation/file_scans.md).
+Each `## BEGIN MAIL … ## END MAIL` block (or, in the latest dump, each
+double-blank-line-separated record) gives one detection. Mappings below
+map each unique `(File Name, Sha256)` pair to the failing RPM and source
+component, by cross-referencing against `investigation/<comp>/package_files.md`.
+
+The scanner output gives only file names and SHA256 — no path, no source
+RPM. The component column below is therefore inferred by **filename match
+in the recursive RPM listings** (which are themselves authoritative for
+what shipped in each failing artefact); SHA256 confirmation requires a
+separate pass that hashes the staged lookaside files.
+
+| File name | SHA256 | Detection | Scanner | Component | Path inside RPM | Reference |
+|---|---|---|---|---|---|---|
+| `obfuscated` | `fa45ddb2f157940f733707e77e8b856127019691585f3fe19aa77c95c8b58394` | `packer_dotfuscator:eod` | Karambiner | `yara` | `yara-4.5.4.tar.gz/yara-4.5.4/tests/oss-fuzz/dotnet_fuzzer_corpus/obfuscated` | [yara/package_files.md](investigation/yara/package_files.md) line 290 |
+| `bla.encrypted.7z` | `17925c6a2e339dcf327686e1316df2715197a91346f24edf5845e27e243e6e13` | `File is encrypted!` | K7 | `apache-commons-compress` | `commons-compress-1.27.1-src.tar.gz/commons-compress-1.27.1-src/src/test/resources/bla.encrypted.7z` | [apache-commons-compress/package_files.md](investigation/apache-commons-compress/package_files.md) line 8741 |
+| `password-encrypted.zip` | `3a2559c7157226f1ef08ad5dcb3532e921f41474655d390932096f532f09ad85` | `File is encrypted!` | K7 | `apache-commons-compress` | `commons-compress-1.27.1-src.tar.gz/commons-compress-1.27.1-src/src/test/resources/password-encrypted.zip` | [apache-commons-compress/package_files.md](investigation/apache-commons-compress/package_files.md) line 10556 |
+| `password_protected.7z` | `c8189f20e512761085abc594382a853e3bd2683c149871a8e0cd165d4446d7b8` | `File is encrypted!` | K7 | `kf6-karchive` | `karchive-6.23.0.tar.xz/karchive-6.23.0/autotests/data/password_protected.7z` | [kf6-karchive/package_files.md](investigation/kf6-karchive/package_files.md) line 95 |
+| `libopenfec.so.1.4.2-1.4.2.6-7.azl4~20260420.x86_64.debug` | `050bb5ee298b5028211a89fe74a608309e77d30c9607896248f200dafdfb3c46` | `packer_high_entropy:eod` | Karambiner | `openfec` | `openfec-debuginfo-1.4.2.6-7.azl4~20260420.x86_64.rpm` payload (auto-generated debuginfo of `libopenfec.so.1.4.2`) | (debuginfo binary; not in any tar/zip — directly inside the failing `*-debuginfo` RPM) |
+| `libopenfec.so.1.4.2-1.4.2.6-7.azl4~20260420.aarch64.debug` | `fce98b88caf1b8136d1c44be29527592d1d935bfcbe33af299efb1aa64a9e0f8` | `packer_high_entropy:eod` | Karambiner | `openfec` | `openfec-debuginfo-1.4.2.6-7.azl4~20260420.aarch64.rpm` payload | (debuginfo binary) |
+| `broken.zip` | `6786690f390a8ad0e70e38900832332c85b04710c82785a03928e86677b8aaa4` | `File is encrypted!` | K7 | `qt6-qtwebengine` | `qtwebengine-everywhere-src-6.10.2-clean.tar.xz/.../src/3rdparty/chromium/third_party/libzip/src/regress/broken.zip` | [qt6-qtwebengine/package_files.md](investigation/qt6-qtwebengine/package_files.md) line 180808 |
+| `encrypt.zip` | `2a4520f5f179b9f3b7cf2f54385053b3b7d8acefbe0438c2be28eae5412bf0d4` | `File is encrypted!` | K7 | `qt6-qtwebengine` | `.../src/3rdparty/chromium/third_party/libzip/src/regress/encrypt.zip` | [qt6-qtwebengine/package_files.md](investigation/qt6-qtwebengine/package_files.md) line 180864 |
+| `encrypt-aes128.zip` | `82c67fe36d8ab42cba7455dab0270681694c23ef590fdc3501864b2f4260f858` | `File is encrypted!` | K7 | `qt6-qtwebengine` | `.../libzip/src/regress/encrypt-aes128.zip` | [qt6-qtwebengine/package_files.md](investigation/qt6-qtwebengine/package_files.md) line 180849 |
+| `encrypt-aes128-noentropy.zip` | `774f22ea6c0f2c1015c56c1ea52633a8ca07dfbe96c8b7d320e7ffba9d3be54e` | `File is encrypted!` | K7 | `qt6-qtwebengine` | `.../libzip/src/regress/encrypt-aes128-noentropy.zip` | [qt6-qtwebengine/package_files.md](investigation/qt6-qtwebengine/package_files.md) line 180847 |
+| `encrypt-aes192.zip` | `c259399ea7a1618bd1fc36b17404a16efa0a5e7b40bb395d8d347856fae57790` | `File is encrypted!` | K7 | `qt6-qtwebengine` | `.../libzip/src/regress/encrypt-aes192.zip` | [qt6-qtwebengine/package_files.md](investigation/qt6-qtwebengine/package_files.md) line 180853 |
+| `encrypt-aes192-noentropy.zip` | `a6ec1a039d687b3c52a4b159b78049e066544873db6fca51056bb564daa8fa1d` | `File is encrypted!` | K7 | `qt6-qtwebengine` | `.../libzip/src/regress/encrypt-aes192-noentropy.zip` | [qt6-qtwebengine/package_files.md](investigation/qt6-qtwebengine/package_files.md) line 180851 |
+| `encrypt-aes256.zip` | `6ed6c0645b6270aa1155177484f0c49f8d5194dd8220495867c6ed2fac20ac1c` | `File is encrypted!` | K7 | `qt6-qtwebengine` | `.../libzip/src/regress/encrypt-aes256.zip` | [qt6-qtwebengine/package_files.md](investigation/qt6-qtwebengine/package_files.md) line 180857 |
+| `encrypt-aes256-noentropy.zip` | `b0360dd70d901b3494d3bff3609582329a0005bf7246f80c8d2ede71fd942457` | `File is encrypted!` | K7 | `qt6-qtwebengine` | `.../libzip/src/regress/encrypt-aes256-noentropy.zip` | [qt6-qtwebengine/package_files.md](investigation/qt6-qtwebengine/package_files.md) line 180855 |
+| `encrypt-pkware-noentropy.zip` | `6dff2109ef56179b9d5452490c169c1000e05fdb8ab3a3f5e4284fce04685710` | `File is encrypted!` | K7 | `qt6-qtwebengine` | `.../libzip/src/regress/encrypt-pkware-noentropy.zip` | [qt6-qtwebengine/package_files.md](investigation/qt6-qtwebengine/package_files.md) line 180861 |
+| `encrypt_plus_extra.zip` | `e55abb60d5cb90968e43389514e7bf18b2bd5acdf488d1ca31daff91e5addfb8` | `File is encrypted!` | K7 | `qt6-qtwebengine` | `.../libzip/src/regress/encrypt_plus_extra.zip` | [qt6-qtwebengine/package_files.md](investigation/qt6-qtwebengine/package_files.md) line 180866 |
+| `encrypt_plus_extra_modified_c.zip` | `07475bc28e1971fc1e4977aff26b390cd9fa6d6b65155f64961ba40f6fca74c9` | `File is encrypted!` | K7 | `qt6-qtwebengine` | `.../libzip/src/regress/encrypt_plus_extra_modified_c.zip` | [qt6-qtwebengine/package_files.md](investigation/qt6-qtwebengine/package_files.md) line 180868 |
+| `encrypt_plus_extra_modified_l.zip` | `0b75b5b828d846c714915ca7acff89c7e140049a63e5f71e6a89cda55039948f` | `File is encrypted!` | K7 | `qt6-qtwebengine` | `.../libzip/src/regress/encrypt_plus_extra_modified_l.zip` | [qt6-qtwebengine/package_files.md](investigation/qt6-qtwebengine/package_files.md) line 180870 |
+| `encrypted.7z` | `e08da1630dadceed970afb3e4dc3ecc098de05e858e4b11af852b863a2f85178` | `File is encrypted!` | K7 | `qt6-qtwebengine` | `.../src/3rdparty/chromium/third_party/lzma_sdk/google/test_data/encrypted.7z` | [qt6-qtwebengine/package_files.md](investigation/qt6-qtwebengine/package_files.md) line 733432 |
+| `encrypted_header.7z` | `fffad602471fa9cede8c5f084c38c47dab92247caea300c15ae19d9e95212b98` | `File is encrypted!` | K7 | `qt6-qtwebengine` | `.../src/3rdparty/chromium/third_party/lzma_sdk/google/test_data/encrypted_header.7z` | [qt6-qtwebengine/package_files.md](investigation/qt6-qtwebengine/package_files.md) line 733433 |
+| `aes_archive.zip` | `4abb3f304d1ab669453b7c4eae80db6ce8aff4ab91c8ab9a6edf90bbfede12f4` | `File is encrypted!` | K7 | `mozjs128` | inside `mozjs128-128.11.0-1.azl4~20260420.src.rpm` (path not enumerated — [mozjs128/package_files.md](investigation/mozjs128/package_files.md) listing is incomplete) | per user direction 2026-05-06; needs path confirmation during the `mozjs128` Wave-C investigation |
+
+### Aggregate detection summary
+
+- **21 unique detections** in [investigation/file_scans.md](investigation/file_scans.md) (some appear multiple times across different ESRP request IDs; deduplicated by `(File Name, Sha256)`).
+- **Two distinct detection signatures**:
+  - `File is encrypted!` (K7) — fires on password-protected / AES-encrypted ZIP and 7z archives (19 of 21 detections). Always a benign positive on test-fixture content; AV scanners cannot inspect encrypted archives and surface them as "unable to scan".
+  - `packer_dotfuscator:eod` and `packer_high_entropy:eod` (Karambiner) — fires on entropy/packer heuristics. The `dotfuscator` hit is on a deliberately-obfuscated .NET test binary in YARA's fuzzer corpus (true positive — that is exactly what the file is). The `packer_high_entropy` hits are on the openfec `*-debuginfo` `.debug` companion ELFs — almost certainly a false positive on stripped DWARF/symbol-table data, which is naturally high-entropy.
+- **Distribution by component**: `qt6-qtwebengine` 16 detections, `apache-commons-compress` 2, `openfec` 2, `mozjs128` 1, `kf6-karchive` 1, `yara` 1.
+
+### Cross-cutting observations
+
+- All but two detections are on **bundled-third-party encrypted-archive test fixtures** with the scanner refusing to inspect them. This is a single class of false-positive that should be addressable by a single ESRP allow-list rule (or by SRPM-time strip of the relevant `tests/`/`regress/`/`test_data/` directories).
+- The `openfec` `*.debug` detections are a **distinct class** (entropy heuristic on stripped debug ELFs, not encrypted archives). Likely false positive but needs a different mitigation: ESRP allow-list scoped to `*-debuginfo` packages, or rebuild with different `--strip-debug-symbols` flags. Worth checking whether other `*-debuginfo` packages in the AZL fleet were also flagged but suppressed by the publishing pipeline.
+- The YARA `obfuscated` hit (`packer_dotfuscator`) is the strongest classification any of the scanners produced — it correctly identifies the file as a Dotfuscator-packed .NET binary, which is precisely what YARA's `dotnet_fuzzer_corpus/obfuscated` is supposed to be (a deliberately-obfuscated input for the YARA `.NET` parser). Useful as an exemplar of "scanner working correctly on benign test data".
+- **No detection citations** for: `chromium` (unmapped — its detections may live in a separate scan run), `espeak-ng` (no detections in 2026-05-06 dump despite the SSML XXE/billion-laughs payloads being a strong trigger candidate — re-check in next dump), `exfatprogs`, `firefox`, `gdal`, `ghc`, `java-25-openjdk*`, `libabigail` (passed re-scan), `libkml`, `llvm`/`llvm20`, `mathjax` (passed re-scan), `mingw-*` (passed re-scan), `perl-*-Signature` (passed re-scan), `python-impacket` (being removed), `qemu`, `rubygem-pdf-reader`, `samba`, `star`, `stress-ng` (passed re-scan), `texlive`. The 2026-05-06 dump may be partial — additional detections may surface in subsequent runs.
+
 ---
 
 ## Failed-signing table (from the e-mail)
