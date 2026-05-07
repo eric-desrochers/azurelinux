@@ -120,22 +120,111 @@ stages:
           - script: |
               set -euo pipefail
 
-              # Workaround for an ADO git config error during spec rendering.
+              # Workaround for an ADO git config error.
               # The config key may not be present on every agent image, so tolerate its absence.
               git config --unset extensions.worktreeConfig || true
 
-              # Full history is needed for spec rendering to work.
+              # Full history is needed for lock resolution and spec rendering.
               if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
                 echo "##[group]Fetching full git history"
                 git fetch --unshallow
                 echo "##[endgroup]"
               fi
 
+              echo "##[group]Updating lock files"
+              azldev component update -a -q -O json > /tmp/lock-update.json
+              echo "##[endgroup]"
+
+              # Check if any locks drifted — azldev tells us directly.
+              # If locks are not valid, we can't guarantee that any further steps are valid, so fail the PR check immediately.
+              # Output is null when nothing changed, or a JSON array of objects.
+              drifted=$(jq '[.[] | select(.changed == true)] | length // 0' /tmp/lock-update.json 2>/dev/null || echo 0)
+              if [[ "$drifted" -gt 0 ]]; then
+                echo "##[error]$drifted lock file(s) are not up to date. Run 'azldev component update -a' and commit the result."
+                echo "##[group]Drifted components"
+                jq -r '.[] | select(.changed == true) | .component' /tmp/lock-update.json
+                echo "##[endgroup]"
+                exit 1
+              fi
+            displayName: "Verify lock files are up to date"
+            env:
+              # OneBranch containers run as root. azldev refuses to run as root
+              # by default, disable the root security check for this step.
+              AZLDEV_ALLOW_ROOT: "1"
+
+          - script: |
+              set -euo pipefail
+
+              artifact_dir="$ARTIFACT_STAGING_DIR/changed-components"
+              json_file="$artifact_dir/changed-components.json"
+              mkdir -p "$artifact_dir"
+
+              # 'azldev component changed' compares the source and target commits and emits one
+              # entry per component with its 'changeType' ('added', 'changed', 'unchanged', or
+              # 'deleted') plus a 'sourcesChange' flag indicating whether the rendered 'sources'
+              # file differs between commits. Only components with sourcesChange == true AND
+              # changeType != 'deleted' are forwarded to Control Tower for upload.
+
+              echo "##[group]Computing changed components"
+              azldev component changed --from "$TARGET_COMMIT" --to "$SOURCE_COMMIT" -a  -O json > "$json_file"
+              echo "##[endgroup]"
+
+              echo "##[group]Changed components"
+              cat "$json_file"
+              echo "##[endgroup]"
+
+              echo "##[group]Upload set (sourcesChange == true, not deleted)"
+              upload_count=$(jq -r '[.[] | select(.sourcesChange == true and .changeType != "deleted")] | length' "$json_file")
+              jq -r '.[] | select(.sourcesChange == true and .changeType != "deleted") | .component' "$json_file" | sort
+              echo "Total: $upload_count component(s) to upload."
+              echo "##[endgroup]"
+
+              # Also write into ob_outputDirectory so OneBranch auto-publishes it
+              # as a build artifact (explicit PublishPipelineArtifact is forbidden).
+              ob_dir="$OB_OUTPUT_DIR/changed-components"
+              mkdir -p "$ob_dir"
+              cp "$json_file" "$ob_dir/"
+
+              echo "##vso[task.setvariable variable=changedComponentsFile]$json_file"
+            env:
+              ARTIFACT_STAGING_DIR: $(Build.ArtifactStagingDirectory)
+              # OneBranch containers run as root. azldev refuses to run as root
+              # by default, disable the root security check for this step.
+              AZLDEV_ALLOW_ROOT: "1"
+              OB_OUTPUT_DIR: $(ob_outputDirectory)
+              SOURCE_COMMIT: $(sourceCommit)
+              TARGET_COMMIT: $(targetCommit)
+            displayName: "Compute changed components"
+
+          - script: |
+              set -euo pipefail
+
               specs_dir="$(azldev config dump -q -f json | jq -r '.project.renderedSpecsDir')"
 
-              echo "##[group]Specs rendering"
-              azldev component render -q -a --clean-stale
-              echo "##[endgroup]"
+              # Re-render any component where either:
+              #   - changeType is not 'unchanged' (added, changed — inputs differ)
+              #   - sourcesChange is true (rendered sources file differs, even if
+              #     the fingerprint didn't catch it — shouldn't happen, but safety net)
+              # Always excludes 'deleted' — nothing to render for removed components.
+              changed=$(jq -r '
+                .[] |
+                select(
+                  .changeType != "deleted" and
+                  (.changeType != "unchanged" or .sourcesChange == true)
+                ) |
+                .component
+              ' "$CHANGED_COMPONENTS_FILE")
+
+              if [[ -z "$changed" ]]; then
+                echo "No changed components — skipping render."
+              else
+                changed_count=$(echo "$changed" | wc -l)
+                echo "Rendering $changed_count changed component(s)..."
+                echo "##[group]Specs rendering"
+                # shellcheck disable=SC2086 — intentional word-splitting on component names
+                azldev component render -q $changed
+                echo "##[endgroup]"
+              fi
 
               # Check for any new or modified files under the specs directory.
               if ! python3 .github/workflows/scripts/render-specs-check/check_rendered_specs.py --specs-dir "$specs_dir"; then
@@ -145,51 +234,12 @@ stages:
                 echo "##[error]Specs are not up to date. Run 'azldev component render -q -a --clean-stale' and try again."
                 exit 1
               fi
-            displayName: "Verify rendered specs are up to date"
-            # TODO: Re-enabled failing once specs in the main branch are updated and stable.
-            # ADO task: 19179
-            continueOnError: true
-
-          - script: |
-              set -euo pipefail
-
-              cat << EOF
-              NOTE: It's possible more components changed between the source and target commits than displayed below.
-                    This workflow only checks for updates in the 'sources' files and ignores all other changes.
-                    Only components present on the source commit are reported; components that exist only on the
-                    target branch are intentionally excluded. Pure renames are reported under their source-branch
-                    name, since the component name is part of the cache blob name we upload.
-              EOF
-
-              # Diff direction is TARGET -> SOURCE so additions/modifications represent the source-side state:
-              #   * --no-renames decomposes a rename into an add (new path, source side) + delete (old path,
-              #     target side); we want the source-side name because the component name is part of the cache
-              #     blob name uploaded for the PR. It also silences git's diff.renameLimit warning on large diffs.
-              #   * --diff-filter=d (lowercase) excludes deletions, which here correspond to paths present only
-              #     on the target branch -- those components are not on the PR and must not be uploaded.
-              # Net effect: the listed '*/sources' files are exactly those present on the source commit that
-              # differ from target, including pure renames surfaced under the source-branch name.
-              sources_files="$(
-                git diff --no-renames --diff-filter=d "$TARGET_COMMIT" "$SOURCE_COMMIT" --name-only \
-                  | { grep '/sources$' || true; } \
-                  | sort -u
-              )"
-
-              components=()
-              while IFS= read -r line; do
-                # Skip the spurious empty iteration when no '*/sources' files changed.
-                if [[ -n "$line" ]]; then
-                  components+=("$(basename "$(dirname "$line")")")
-                fi
-              done <<< "$sources_files"
-
-              components="$(IFS=, ; echo "${components[*]}")"
-              echo "Affected components: $components"
-              echo "##vso[task.setvariable variable=components]$components"
             env:
-              SOURCE_COMMIT: $(sourceCommit)
-              TARGET_COMMIT: $(targetCommit)
-            displayName: "Determine affected components"
+              # OneBranch containers run as root. azldev refuses to run as root
+              # by default, disable the root security check for this step.
+              AZLDEV_ALLOW_ROOT: "1"
+              CHANGED_COMPONENTS_FILE: $(changedComponentsFile)
+            displayName: "Verify rendered specs are up to date"
 
           - task: AzureCLI@2
             displayName: "Call Control Tower 'prcheck' API"
@@ -204,14 +254,14 @@ stages:
                   --api-audience "$API_AUDIENCE" \
                   --api-base-url "$API_BASE_URL" \
                   --build-reason "$BUILD_REASON" \
-                  --components "$COMPONENTS" \
+                  --changed-components-file "$CHANGED_COMPONENTS_FILE" \
                   --source-commit "$SOURCE_COMMIT" \
                   --repo-uri "$UPSTREAM_REPO_URL"
             env:
               API_AUDIENCE: $(ApiAudience)
               API_BASE_URL: $(ApiBaseUrl)
               BUILD_REASON: $(Build.Reason)
-              COMPONENTS: $(components)
+              CHANGED_COMPONENTS_FILE: $(changedComponentsFile)
               SOURCE_COMMIT: $(sourceCommit)
               # TODO: Target commit is not used. Will be needed once we move detection of affected components to CT.
               # ADO task: 18816
