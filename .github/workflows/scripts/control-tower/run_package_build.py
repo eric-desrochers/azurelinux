@@ -2,13 +2,13 @@
 
 Flow:
     1. Read the changed-components JSON (from ``azldev component changed``).
-    2. Filter to the build set: ``changeType ∈ {added, changed}`` — any
+    2. Filter to the build set: ``changeType in {added, changed}`` -- any
        component whose inputs changed needs a rebuild, regardless of whether
        its ``sourcesChange`` flag is set.
     3. POST ``/api/Scenario/package`` with the build request.
     4. Poll briefly (default 5 min) until the job leaves ``Queued`` or hits a
        terminal failure. The goal is to confirm the job was accepted, not to
-       wait for the full build — that can take hours.
+       wait for the full build -- that can take hours.
     5. Exit 0 if the job started (or completed). Exit 1 only on submission
        failure or immediate terminal failure.
 """
@@ -27,12 +27,12 @@ def _load_build_components(path: Path) -> list[str]:
     """Filter the ``azldev component changed`` JSON to the build set.
 
     The build set is every component with ``changeType`` in ``{added, changed}``
-    — these are the components whose inputs differ between source and target
+    -- these are the components whose inputs differ between source and target
     and therefore need a rebuild. Unlike the upload set, we do NOT filter on
     ``sourcesChange`` here: a component can need a rebuild even if its source
     tarballs didn't change (e.g. an overlay or build-config change).
 
-    Deleted components are excluded — there is nothing to build.
+    Deleted components are excluded -- there is nothing to build.
     """
     try:
         raw = path.read_text(encoding="utf-8")
@@ -131,7 +131,7 @@ def _parse_args() -> argparse.Namespace:
         default=300,
         help=(
             "Maximum time to wait for the job to leave Queued status "
-            "(default: 300 = 5 min). This is NOT the build timeout — we just "
+            "(default: 300 = 5 min). This is NOT the build timeout -- we just "
             "want to confirm the job was accepted."
         ),
     )
@@ -153,10 +153,10 @@ def main() -> None:
     base_url = args.api_base_url.rstrip("/")
 
     if not components:
-        print("No components need a rebuild — skipping package-build submission.")
+        print("No components need a rebuild -- skipping package-build submission.")
         return
 
-    # ── Build payload ────────────────────────────────────────────────
+    # -- Build payload ---
     payload: dict = {
         "repoUri": args.repo_uri,
         "packageTarget": args.package_target,
@@ -172,13 +172,13 @@ def main() -> None:
     print("Payload:")
     print(json.dumps(payload, indent=2))
 
-    # ── Acquire bearer token ─────────────────────────────────────────
+    # -- Acquire bearer token ---
     credential = DefaultAzureCredential()
     token_holder = ct.TokenHolder(token=ct.get_token(credential, args.api_audience))
 
     session = ct.make_session()
 
-    # ── Submit build ─────────────────────────────────────────────────
+    # -- Submit build ---
     try:
         build_response = ct.post_scenario(
             session,
@@ -205,7 +205,7 @@ def main() -> None:
         )
         sys.exit(1)
 
-    # ── Brief poll — just confirm the job was accepted ───────────────
+    # -- Brief poll -- just confirm the job was accepted ---
     print(
         f"Polling job {job_id} for up to {args.poll_timeout_seconds}s to confirm "
         f"acceptance (not waiting for full build completion)..."
@@ -226,11 +226,11 @@ def main() -> None:
         sys.exit(1)
 
     if final is None:
-        # Local timeout — job is still running, which is fine. We just wanted
+        # Local timeout -- job is still running, which is fine. We just wanted
         # to confirm it didn't fail immediately.
         print(
             f"Job {job_id} is still running after {args.poll_timeout_seconds}s "
-            f"— build accepted. Monitor progress in the Control Tower UI."
+            f"-- build accepted. Monitor progress in the Control Tower UI."
         )
         return
 
@@ -241,7 +241,7 @@ def main() -> None:
         print(f"Control Tower build job {job_id} completed successfully.")
         return
 
-    # Terminal failure — the job was accepted but failed immediately.
+    # Terminal failure -- the job was accepted but failed immediately.
     ct.report_failure(final)
     sys.exit(1)
 

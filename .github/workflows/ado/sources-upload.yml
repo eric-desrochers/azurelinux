@@ -4,7 +4,7 @@
 # definition keeps firing while we iterate. Drop this commit before merging
 # PR-3.
 #
-# Wrapper pipeline — passed to ADO as the entry point. This file owns all
+# Wrapper pipeline -- passed to ADO as the entry point. This file owns all
 # OneBranch-specific wiring (governed templates repo, Official vs NonOfficial
 # variant, featureFlags) and delegates the actual stages/jobs/steps to the
 # raw stages template at:
@@ -34,7 +34,7 @@
 #     - ApiBaseUrl           : Base URL of the Control Tower service
 #     - AzldevCommit         : Commit hash for azldev (go install ...@<commit>)
 
-# Trigger controlled by ADO branch policy — not YAML triggers.
+# Trigger controlled by ADO branch policy -- not YAML triggers.
 trigger: none
 
 pr: none

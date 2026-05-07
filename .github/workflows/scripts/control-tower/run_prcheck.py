@@ -13,7 +13,7 @@ Component selection:
     Pass either ``--components`` (comma-separated names) OR
     ``--changed-components-file`` (path to the raw JSON output of
     ``azldev component changed -a -O json``). With the file form, only
-    components whose ``sourcesChange`` is ``true`` are forwarded — those are
+    components whose ``sourcesChange`` is ``true`` are forwarded -- those are
     the ones whose lookaside tarballs need to be (re-)uploaded.
 """
 
@@ -90,7 +90,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--build-reason",
         required=True,
-        help="ADO build reason (PullRequest, IndividualCI, …)",
+        help="ADO build reason (PullRequest, IndividualCI, ...)",
     )
 
     components_group = parser.add_mutually_exclusive_group(required=True)
@@ -156,7 +156,7 @@ def main() -> None:
     # configured `ApiBaseUrl` with a trailing '/'.
     base_url = args.api_base_url.rstrip("/")
 
-    # ── Build payload ────────────────────────────────────────────────
+    # -- Build payload ---
     payload: dict = {
         "components": components,
         "buildReason": args.build_reason,
@@ -190,13 +190,13 @@ def main() -> None:
         )
         return
 
-    # ── Acquire bearer token ─────────────────────────────────────────
+    # -- Acquire bearer token ---
     credential = DefaultAzureCredential()
     token_holder = ct.TokenHolder(token=ct.get_token(credential, args.api_audience))
 
     session = ct.make_session()
 
-    # ── Call prcheck API ─────────────────────────────────────────────
+    # -- Call prcheck API ---
     try:
         prcheck_response = ct.post_scenario(
             session,
@@ -223,7 +223,7 @@ def main() -> None:
         )
         sys.exit(1)
 
-    # ── Poll for job completion ──────────────────────────────────────
+    # -- Poll for job completion ---
     print(
         f"Polling job {job_id} every {args.poll_interval_seconds}s "
         f"(timeout {args.poll_timeout_seconds}s)..."
@@ -244,7 +244,7 @@ def main() -> None:
         sys.exit(1)
 
     if final is None:
-        # Local timeout — job may still be running on the service side.
+        # Local timeout -- job may still be running on the service side.
         print(
             f"##[error]Timed out locally after {args.poll_timeout_seconds}s "
             f"waiting for job {job_id} to finish. Inspect the job in Control Tower."

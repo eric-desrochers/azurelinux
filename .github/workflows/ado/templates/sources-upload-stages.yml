@@ -135,7 +135,7 @@ stages:
               azldev component update -a -q -O json > /tmp/lock-update.json
               echo "##[endgroup]"
 
-              # Check if any locks drifted — azldev tells us directly.
+              # Check if any locks drifted -- azldev tells us directly.
               # If locks are not valid, we can't guarantee that any further steps are valid, so fail the PR check immediately.
               # Output is null when nothing changed, or a JSON array of objects.
               drifted=$(jq '[.[] | select(.changed == true)] | length // 0' /tmp/lock-update.json 2>/dev/null || echo 0)
@@ -221,10 +221,10 @@ stages:
               specs_dir="$(azldev config dump -q -f json | jq -r '.project.renderedSpecsDir')"
 
               # Re-render any component where either:
-              #   - changeType is not 'unchanged' (added, changed — inputs differ)
+              #   - changeType is not 'unchanged' (added, changed -- inputs differ)
               #   - sourcesChange is true (rendered sources file differs, even if
-              #     the fingerprint didn't catch it — shouldn't happen, but safety net)
-              # Always excludes 'deleted' — nothing to render for removed components.
+              #     the fingerprint didn't catch it -- shouldn't happen, but safety net)
+              # Always excludes 'deleted' -- nothing to render for removed components.
               changed=$(jq -r '
                 .[] |
                 select(
@@ -235,12 +235,12 @@ stages:
               ' "$CHANGED_COMPONENTS_FILE")
 
               if [[ -z "$changed" ]]; then
-                echo "No changed components — skipping render."
+                echo "No changed components -- skipping render."
               else
                 changed_count=$(echo "$changed" | wc -l)
                 echo "Rendering $changed_count changed component(s)..."
                 echo "##[group]Specs rendering"
-                # shellcheck disable=SC2086 — intentional word-splitting on component names
+                # shellcheck disable=SC2086 -- intentional word-splitting on component names
                 azldev component render -q $changed
                 echo "##[endgroup]"
               fi
@@ -297,7 +297,7 @@ stages:
         # TODO: Remove `continueOnError` once the pipeline is stable.
         # ADO task: 19179
         continueOnError: true
-        # Brief timeout — we only wait long enough to confirm the job was
+        # Brief timeout -- we only wait long enough to confirm the job was
         # accepted by Control Tower, not for the full build.
         timeoutInMinutes: 15
         pool:

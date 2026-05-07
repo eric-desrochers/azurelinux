@@ -124,7 +124,7 @@ def format_error(response: requests.Response) -> str:
         if correlation_id:
             lines.append(f"  correlationId: {correlation_id}")
 
-    # Only dump the raw body when structured parsing found nothing useful —
+    # Only dump the raw body when structured parsing found nothing useful --
     # this keeps logs readable in the common case while preserving forensics
     # when CT returns an unexpected shape.
     if not matched_known_key:
@@ -175,7 +175,7 @@ def _request_with_refresh(
     )
     if response.status_code == 401:
         print(
-            "Bearer token rejected (401) — refreshing and retrying once...",
+            "Bearer token rejected (401) -- refreshing and retrying once...",
             flush=True,
         )
         token_holder.token = get_token(credential, audience)
