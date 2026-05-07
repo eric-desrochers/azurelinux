@@ -157,9 +157,11 @@ def main() -> None:
     base_url = args.api_base_url.rstrip("/")
 
     # -- Build payload ---
+    # PrCheckRequest schema sets additionalProperties=false, so do NOT add
+    # fields the server doesn't know about (e.g. buildReason) -- the gateway
+    # will reject the request with HTTP 400.
     payload: dict = {
         "components": components,
-        "buildReason": args.build_reason,
         "repoUri": args.repo_uri,
     }
     if args.source_commit is not None:
