@@ -4,7 +4,7 @@
 #
 # This template is OneBranch-agnostic: it declares the stages/jobs/steps that
 # do the actual work and exposes the OneBranch-coupled knobs as parameters.
-# The wrapper at .github/workflows/ado/control-tower-integration.yml is responsible for
+# The wrapper at .github/workflows/ado/sources-upload.yml is responsible for
 # choosing the OneBranch governed template variant (Official vs NonOfficial),
 # configuring its featureFlags, and supplying concrete values for the
 # parameters declared below.
@@ -270,9 +270,11 @@ stages:
 
       - job: SubmitPackageBuild
         dependsOn: ValidateAndUpload
-        # Only run after a successful prcheck, and never on PR triggers —
-        # we don't want to kick off builds for unmerged code.
-        condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+        # TESTING-ONLY: PR exclusion temporarily lifted so we can exercise the
+        # SubmitPackageBuild job from a draft PR. Scratch builds are safe to
+        # kick off from arbitrary refs. Drop this commit before merging PR-3.
+        # Production condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+        condition: succeeded()
         # TODO: Remove `continueOnError` once the pipeline is stable.
         # ADO task: 19179
         continueOnError: true
