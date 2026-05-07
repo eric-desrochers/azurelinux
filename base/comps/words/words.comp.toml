@@ -1,0 +1,25 @@
+[components.words]
+
+# DO NOT MERGE -- pipeline test fixture for the source-upload + Control Tower
+# integration. Two overlays simulate a "malicious source swap":
+#   1. Spec Source: URL is replaced with a bogus host (no DNS, no HTTP).
+#   2. The sources lookaside index is rewritten to reference a tarball that
+#      does not exist.
+# The component's input fingerprint changes (changeType=changed) AND the
+# rendered sources file changes (sourcesChange=true), so the prcheck job
+# should forward this component to Control Tower for upload, which is
+# expected to fail when it tries to resolve either the spec URL or the
+# missing lookaside object.
+
+[[components.words.overlays]]
+type = "spec-search-replace"
+description = "DO NOT MERGE: point Source: at a bogus URL to exercise the upload-failure path."
+regex = '^Source:\s+https://web\.archive\.org/web/20060527013227/http://www\.dcs\.shef\.ac\.uk/research/ilash/Moby/mwords\.tar\.Z$'
+replacement = "Source: https://bogus.invalid.example.test/does-not-exist/mwords-bogus.tar.Z"
+
+[[components.words.overlays]]
+type = "file-search-replace"
+description = "DO NOT MERGE: rewrite the lookaside sources index to reference a tarball that does not exist."
+file = "sources"
+regex = 'd867188424b3ae6512a754d5c73f0dfe\s+mwords\.tar\.Z'
+replacement = "00000000000000000000000000000000  mwords-bogus.tar.Z"
