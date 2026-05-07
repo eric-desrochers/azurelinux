@@ -173,6 +173,25 @@ stages:
               cat "$json_file"
               echo "##[endgroup]"
 
+              # Security check: refuse to forward sources whose contents changed
+              # without a corresponding identity change. A PR that mutates the
+              # rendered 'sources' file while leaving the input fingerprint
+              # untouched (changeType == 'unchanged') would let attacker-supplied
+              # bytes ride into the lookaside / build pipeline under an existing
+              # component's identity \u2014 effectively a supply-chain swap. Treat
+              # any such mismatch as hostile and hard-fail. 'deleted' legitimately
+              # reports sourcesChange == true (the sources file went away) and is
+              # excluded from this check.
+              echo "##[group]Source/identity consistency check"
+              bogus_count=$(jq -r '[.[] | select(.changeType == "unchanged" and .sourcesChange == true)] | length' "$json_file")
+              if [[ "$bogus_count" -gt 0 ]]; then
+                echo "##[error]$bogus_count component(s) have sources changes without a corresponding identity change. Refusing to forward to Control Tower."
+                jq -r '.[] | select(.changeType == "unchanged" and .sourcesChange == true) | "  - " + .component' "$json_file"
+                exit 1
+              fi
+              echo "OK: every sources change is accompanied by an identity change."
+              echo "##[endgroup]"
+
               echo "##[group]Upload set (sourcesChange == true, not deleted)"
               upload_count=$(jq -r '[.[] | select(.sourcesChange == true and .changeType != "deleted")] | length' "$json_file")
               jq -r '.[] | select(.sourcesChange == true and .changeType != "deleted") | .component' "$json_file" | sort
